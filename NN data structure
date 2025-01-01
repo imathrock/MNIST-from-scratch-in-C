@@ -4,6 +4,7 @@
 
 #include<stdio.h>
 #include<stdlib.h>
+#include<math.h>
 
 // Neuron is something that holds a value.
 // It need to have decimal precison, hence float is chosen.
@@ -138,6 +139,39 @@ void matrix_dot_product(struct neuron_layer *a, struct weight_matrix *w, struct 
             prodsum += a->N[j].activation * w->weights[i][j];
         }
         result->N[i].activation = prodsum;
+    }
+}
+
+/// @brief Does one step of forward propogation
+/// @param W Weight matrix
+/// @param B Bias matrix
+/// @param A1 Initial neuron layer
+/// @param A2 Next neuron layer
+void forward_propogate_step(struct weight_matrix*W,struct bias_matrix*B, struct neuron_layer* A1, struct neuron_layer*A2){
+    matrix_dot_product(A1,W,A2);
+    add_bias_matrix(A2,B);
+    ReLU(A2);
+}
+
+/// @brief Applies Rectified Linear Unit function to the neurons in the later
+/// @param A Neuron layer to which the ReLU is applied.
+void ReLU(struct neuron_layer*A){
+    int k = A->num_neurons;
+    for(int i = 0; i < k; i++){
+        if(A->N[i].activation < 0){ A->N[i].activation = 0.0;}
+    }
+}
+
+/// @brief Applies softmax to the final output layer.
+/// @param A Final output layer
+void softmax(struct neuron_layer* A){
+    int k = A->num_neurons;
+    int expsum;
+    for (int i = 0; i < k; i++){
+        expsum += exp(A->N[i].activation);
+    }
+    for (int i = 0; i < k; i++){
+        A->N[i].activation = exp(A->N[i].activation)/expsum;
     }
 }
 
