@@ -149,7 +149,7 @@ void matrix_dot_product(struct neuron_layer *a, struct weight_matrix *w, struct 
 /// @param A2 Next neuron layer
 void forward_propogate_step(struct weight_matrix*W,struct bias_matrix*B, struct neuron_layer* A1, struct neuron_layer*A2){
     matrix_dot_product(A1,W,A2);
-    add_bias_matrix(A2,B);
+    add_matricies(A2,B);
     ReLU(A2);
 }
 
