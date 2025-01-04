@@ -175,6 +175,10 @@ void softmax(struct neuron_layer* A){
     }
 }
 
+
+void back_propogate_step(){
+}
+
 int main(){
     struct neuron_layer*A1 = layer_constructor(784);
     struct weight_matrix*W1 = weight_matrix_constructor(10,784);
@@ -202,6 +206,7 @@ int main(){
     }
 
     printf("\n""\n");
+
     struct neuron_layer*A2 = layer_constructor(10);
 
     for(int i = 0; i<A2->num_neurons; i++){
@@ -219,5 +224,26 @@ int main(){
     for(int i = 0; i<A2->num_neurons; i++){
         printf("%.2f\n",A2->N[i].activation);
     }
+
+    struct weight_matrix*W2 = weight_matrix_constructor(10,10);
+    struct bias_matrix*B2 = bias_matrix_constructor(10);
+    struct neuron_layer*A3 = layer_constructor(10);
+
+    for(int i = 0; i<A2->num_neurons; i++){
+        printf("%.2f\n",A2->N[i].activation);
+    }
+    printf("\n""\n");
+    matrix_dot_product(A2,W2,A3);
+
+    for(int i = 0; i<A2->num_neurons; i++){
+        printf("%.2f\n",A2->N[i].activation);
+    }
+
+    printf("\n""\n");
+    add_matricies(A3,B2);
+    for(int i = 0; i<A2->num_neurons; i++){
+        printf("%.2f\n",A2->N[i].activation);
+    }
+
     return 1;
 }
