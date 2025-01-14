@@ -13,6 +13,7 @@
 #include<stdlib.h>
 #include<stdint.h>
 #include<math.h>
+#include<malloc.h>
 
 #include"idx-file-parser.h"
 
@@ -41,7 +42,7 @@ uint32_t big_to_little_endian(uint32_t value){
 /// @param file a file with Labels
 /// @return unsigned character array.
 unsigned char* get_image_labels(FILE*file){
-    if(file == NULL){perror("error opening file");printf("File pointer is null");return 1;}
+    if(file == NULL){perror("error opening file");printf("File pointer is null");return NULL;}
     // Read magic number
     uint32_t magic_number;
     fread(&magic_number, sizeof(uint32_t), 1, file);
@@ -55,15 +56,61 @@ unsigned char* get_image_labels(FILE*file){
     
     // allocate space for char array of numbers and write the labels in it
     unsigned char* label_array = malloc(size*sizeof(unsigned char));
-    for(int i = 0; i< size; i++){
+    for(unsigned int i = 0; i < size; i++){
         fread(&label_array[i], sizeof(label_array[i]), 1, file);
-        printf("%s\n",label_array[i]);
     }
     fclose(file);
     return label_array;
 }
 
-void image_label_finalizer(unsigned char* label_array,uint32_t size){
-    for(int i = 0; i < size; i++){free(label_array[i]);}
-    free(label_array);
+struct pixel_data* get_image_pixel_data(FILE*file){
+    if(file == NULL){perror("error opening file");printf("File pointer is null");return NULL;}
+
+    struct pixel_data* neuron_activations = malloc(sizeof(struct pixel_data));
+
+    // Read magic number
+    uint32_t magic_number;
+    fread(&magic_number, sizeof(uint32_t), 1, file);
+    printf("Magic number in big endian: %u\n", magic_number);
+    // Read size
+    uint32_t size;
+    fread(&size, sizeof(uint32_t), 1, file);
+    size = big_to_little_endian(size);
+    printf("size of array: %u\n", size);
+    printf("%s\n","FINALIZER NAME: image_data_finalizer");
+    neuron_activations->size = size;
+
+    // Read rows
+    uint32_t rows;
+    fread(&rows, sizeof(uint32_t), 1, file);
+    rows = big_to_little_endian(rows);
+    printf("Number of rows: %u\n", rows);
+    neuron_activations->rows = rows;
+
+    // Read cols
+    uint32_t cols;
+    fread(&cols, sizeof(uint32_t), 1, file);
+    cols = big_to_little_endian(cols);
+    printf("number of columns: %u\n", cols);
+    neuron_activations->cols = cols;
+
+    // allocate space for char array of numbers and write the labels in it
+    unsigned int numchar = size*rows*cols;
+    unsigned char* activation_values = malloc(sizeof(unsigned char)*numchar);
+    for(unsigned int i = 0; i < numchar; i++){
+        fread(&activation_values[i], sizeof(activation_values[i]), 1, file);
+    }
+    neuron_activations->neuron_activation = activation_values;
+    fclose(file);
+    return neuron_activations;
+}
+
+
+/// @brief finalizer to free the label array.
+/// @param label_array 
+void image_label_finalizer(unsigned char* label_array){
+    if (label_array != NULL) {
+        free(label_array);
+        label_array = NULL;
+    }
 }

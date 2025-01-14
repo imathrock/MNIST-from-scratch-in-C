@@ -14,9 +14,19 @@
 #include<stdint.h>
 #include<string.h>
 #include<math.h>
+#include<malloc.h>
+
+struct pixel_data{
+    unsigned char* neuron_activation;
+    uint32_t size;
+    uint32_t rows;
+    uint32_t cols;
+};
 
 uint32_t big_to_little_endian(uint32_t value);
 
 unsigned char* get_image_labels(FILE*file);
 
-void image_label_finalizer(unsigned char* label_array,uint32_t size);
+struct pixel_data* get_image_pixel_data(FILE*file);
+
+void image_label_finalizer(unsigned char* label_array);

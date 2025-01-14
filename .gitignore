@@ -1,3 +1,6 @@
 .vscode/c_cpp_properties.json
 .vscode/settings.json
 .vscode/tasks.json
+idx-file-parser.o
+NN-data-struct.exe
+NN-data-structure.o
