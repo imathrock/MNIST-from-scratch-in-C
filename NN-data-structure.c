@@ -215,21 +215,22 @@ int main(){
         printf("%f\n",A3->N[i].activation);
     }
 
-    // FILE* file = fopen("data/train-labels.idx1-ubyte", "r");
-    // unsigned char* label_array = get_image_labels(file);
+    FILE* file = fopen("data/train-labels.idx1-ubyte", "r");
+    unsigned char* label_array = get_image_labels(file);
+    printf("\n\n");
+    printf("%d\n",label_array[0]);
+    printf("\n\n");
+    image_label_finalizer(label_array);
 
-    // for(int i = 0; i< 1000; i++){
-    //     printf("%d",label_array[i]);
-    // }
-
-    // image_label_finalizer(label_array);
-
-    FILE* file = fopen("data/train-images.idx3-ubyte", "r");
+    file = fopen("data/train-images.idx3-ubyte", "rb");
     struct pixel_data* activations = get_image_pixel_data(file);
-
-    for(int i = 0; i< 728; i++){
-        printf("%d\n",activations->neuron_activation);
+    for (int i = 0; i < 785; i++){
+        if(i%28 == 0){
+            printf("%3i\n",activations->neuron_activation[i]);
+        }else{
+            printf("%3i",activations->neuron_activation[i]);
+        }
     }
-
+    
     return 1;
 }

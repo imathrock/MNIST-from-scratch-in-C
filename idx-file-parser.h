@@ -17,7 +17,7 @@
 #include<malloc.h>
 
 struct pixel_data{
-    unsigned char* neuron_activation;
+    uint8_t* neuron_activation;
     uint32_t size;
     uint32_t rows;
     uint32_t cols;

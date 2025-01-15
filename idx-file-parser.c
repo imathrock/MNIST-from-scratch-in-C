@@ -71,7 +71,7 @@ struct pixel_data* get_image_pixel_data(FILE*file){
     // Read magic number
     uint32_t magic_number;
     fread(&magic_number, sizeof(uint32_t), 1, file);
-    printf("Magic number in big endian: %u\n", magic_number);
+    printf("Magic number: %u\n", big_to_little_endian(magic_number));
     // Read size
     uint32_t size;
     fread(&size, sizeof(uint32_t), 1, file);
@@ -96,10 +96,15 @@ struct pixel_data* get_image_pixel_data(FILE*file){
 
     // allocate space for char array of numbers and write the labels in it
     unsigned int numchar = size*rows*cols;
-    unsigned char* activation_values = malloc(sizeof(unsigned char)*numchar);
-    for(unsigned int i = 0; i < numchar; i++){
-        fread(&activation_values[i], sizeof(activation_values[i]), 1, file);
+    uint8_t* activation_values = malloc(sizeof(uint8_t)*numchar);
+    size_t bytes_read = fread(activation_values, sizeof(unsigned char), numchar, file);
+    if (bytes_read != numchar) {
+        printf("%s\n","not enough bytes read");
     }
+    for (unsigned int i = 0; i < 10; i++) {
+    printf("%d ", activation_values[i]);
+    }
+    printf("\n");
     neuron_activations->neuron_activation = activation_values;
     fclose(file);
     return neuron_activations;
