@@ -56,13 +56,25 @@ unsigned char* get_image_labels(FILE*file){
     
     // allocate space for char array of numbers and write the labels in it
     unsigned char* label_array = malloc(size*sizeof(unsigned char));
-    for(unsigned int i = 0; i < size; i++){
-        fread(&label_array[i], sizeof(label_array[i]), 1, file);
+    size_t bytes_read = fread(label_array, sizeof(unsigned char), size, file);
+    if (bytes_read != size) {
+        printf("%s\n","not enough bytes read");
     }
     fclose(file);
     return label_array;
 }
 
+/*
+    [offset] [type]          [value]          [description]
+    0000     32 bit integer  0x00000803(2051) magic number
+    0004     32 bit integer  10000            number of images
+    0008     32 bit integer  28               number of rows
+    0012     32 bit integer  28               number of columns
+    0016     unsigned byte   ??               pixel
+    0017     unsigned byte   ??               pixel
+    ........
+    xxxx     unsigned byte   ??               pixel
+*/
 struct pixel_data* get_image_pixel_data(FILE*file){
     if(file == NULL){perror("error opening file");printf("File pointer is null");return NULL;}
 

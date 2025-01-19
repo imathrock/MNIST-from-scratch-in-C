@@ -1,7 +1,8 @@
 {
     "files.associations": {
         "nn-data-structure": "cpp",
-        "jpeglib.h": "c"
+        "jpeglib.h": "c",
+        "cmath": "c"
     },
     "C_Cpp.errorSquiggles": "enabled"
 }

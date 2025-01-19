@@ -173,18 +173,39 @@ void softmax(struct neuron_layer* A){
     for (int i = 0; i < k; i++){
         expsum += exp(A->N[i].activation);
     }
-    printf("%f\n",expsum);
-    printf("\n");
-    for (int i = 0; i < k; i++){
-        A->N[i].activation = (exp(A->N[i].activation)/expsum);
-        printf("%f\n",A->N[i].activation);
+}
+
+
+float* one_hot_encode(int k){
+    float* final = malloc(sizeof(float)*10);
+    for(int i = 0; i < 10; i++){
+        if(i == k){final[i] = (float)k;}
+        else{final[i] = (float)0;}
     }
+    return final;
 }
 
-void loss_function(){
+float* loss_function(struct neuron_layer* final_layer, int k){
+    float* loss = malloc(final_layer->num_neurons*sizeof(float));
+    float* j = one_hot_encode(k);
+    for(int i = 0;i<final_layer->num_neurons;i++){
+        loss[i] = pow(final_layer->N[i].activation-j[i],2);
+    }
+    free(j);
+    return loss;
 }
 
-void back_propogate_step(){
+void back_propogate_step(struct neuron_layer* AL,struct bias_matrix*dB,struct weight_matrix* dW, int k){
+    // Apply back prop once
+    float* dZ = loss_function(AL,k);
+    for (int i = 0; i < dW->rows; i++){
+        for (int j = 0; j < dW->cols; j++){
+            dW->weights[i][j] = dZ[i]*AL->N[j].activation;
+            printf("%3f",dW->weights[i][j]);
+        }
+        printf("\n");
+    }
+    
 }
 
 
@@ -193,14 +214,14 @@ int main(){
     struct neuron_layer*A2 = layer_constructor(10);
     struct neuron_layer*A3 = layer_constructor(10);
     struct weight_matrix*W1 = weight_matrix_constructor(10,784);
+    struct weight_matrix*dW1 = weight_matrix_constructor(10,784);
     struct weight_matrix*W2 = weight_matrix_constructor(10,10);
+    struct weight_matrix*dW2 = weight_matrix_constructor(10,10);
     struct bias_matrix*B1 = bias_matrix_constructor(10);
+    struct bias_matrix*dB1 = bias_matrix_constructor(10);
     struct bias_matrix*B2 = bias_matrix_constructor(10);
+    struct bias_matrix*dB2 = bias_matrix_constructor(10);
 
-    forward_propogate_step(W1,B1,A1,A2);
-    forward_propogate_step(W2,B2,A2,A3);
-    softmax(A3);
-    
     for(int i = 0; i < A1->num_neurons;i++){
         printf("%f\n",A1->N[i].activation);
     }
@@ -215,22 +236,51 @@ int main(){
         printf("%f\n",A3->N[i].activation);
     }
 
-    FILE* file = fopen("data/train-labels.idx1-ubyte", "r");
+    int j = 0;
+    FILE* file = fopen("data/t10k-labels.idx1-ubyte", "r");
     unsigned char* label_array = get_image_labels(file);
     printf("\n\n");
-    printf("%d\n",label_array[0]);
+    printf("%d\n",label_array[j]);
     printf("\n\n");
-    image_label_finalizer(label_array);
+    float* star = one_hot_encode(label_array[j]);
+    for(int i = 0; i< 10; i++){
+        printf("%f\n",star[i]);
+    }
 
-    file = fopen("data/train-images.idx3-ubyte", "rb");
+    file = fopen("data/t10k-images.idx3-ubyte", "rb");
     struct pixel_data* activations = get_image_pixel_data(file);
-    for (int i = 0; i < 785; i++){
+    for (int i = (784*j+1); i <= (784*(j+1)); i++){
         if(i%28 == 0){
-            printf("%3i\n",activations->neuron_activation[i]);
+            printf("\n");
+            if (activations->neuron_activation[i] > 1) {
+                printf("# ");  // Brighter pixel
+            } else {
+                printf(". ");  // Darker pixel
+            }
         }else{
-            printf("%3i",activations->neuron_activation[i]);
+            if (activations->neuron_activation[i] > 1) {
+                printf("# ");  // Brighter pixel
+            } else {
+                printf(". ");  // Darker pixel
+            }
         }
     }
+
+    for (int i = 0; i <= 784; i++){
+        float f = activations->neuron_activation[i];
+        A1->N[i].activation = f;
+        printf("%f\n",A1->N[i].activation);
+    }
+    forward_propogate_step(W1,B1,A1,A2);
+    forward_propogate_step(W2,B2,A2,A3);
+    softmax(A3);
+
+    printf("\n""\n");
+    for(int i = 0; i < A3->num_neurons;i++){
+        printf("%f\n",A3->N[i].activation);
+    }
+
+    back_propogate_step(A3,dB1,dW2,10);
     
     return 1;
 }
