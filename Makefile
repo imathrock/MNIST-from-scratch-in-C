@@ -12,10 +12,10 @@ OBJ = idx-file-parser.o NN-data-structure.o
 	$(CC) -c -o $@ $< $(CFLAGS)
 
 # Target for the executable
-NN-data-struct: $(OBJ)
+NN-data-structure: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
 # Clean rule to remove generated files
 .PHONY: clean
 clean:
-	rm -f *.o NN-data-struct
+	rm -f *.o NN-data-structure
