@@ -40,6 +40,17 @@ struct bias_matrix{
     float*bias;
 };
 
+struct neural_network{
+    struct weight_matrix*W1;
+    struct weight_matrix*W2;
+    struct bias_matrix*B1;
+    struct bias_matrix*B2;
+    struct weight_matrix*dW1;
+    struct weight_matrix*dW2;
+    struct bias_matrix*dB1;
+    struct bias_matrix*dB2;
+};
+
 /// @brief constructs a neuron layer with each neuron containing a random number between 0 and 1 
 struct neuron_layer* layer_constructor(int num_neurons){
     struct neuron_layer*layer = (struct neuron_layer*)malloc(sizeof(struct neuron_layer));
@@ -154,6 +165,7 @@ void ReLU(struct neuron_layer*A){
     }
 }
 
+
 /// @brief Does one step of forward propogation
 /// @param W Weight matrix
 /// @param B Bias matrix
@@ -187,6 +199,10 @@ float* one_hot_encode(int k){
     return final;
 }
 
+/// @brief Loss function that tells us the error values
+/// @param final_layer 
+/// @param k size
+/// @return float array with loss values
 float* loss_function(struct neuron_layer* final_layer, int k){
     float* loss = malloc(final_layer->num_neurons*sizeof(float));
     float* j = one_hot_encode(k);
@@ -198,36 +214,77 @@ float* loss_function(struct neuron_layer* final_layer, int k){
     return loss;
 }
 
-void back_propogate_step(struct neuron_layer* AL,struct bias_matrix*dB,struct weight_matrix* dW, int k){
+void back_propogate_step(struct neuron_layer* A3,struct neuron_layer* A2,struct neuron_layer* A1,
+                        struct bias_matrix*dB2,struct bias_matrix*dB1,
+                        struct weight_matrix* dW2,struct weight_matrix* dW1,
+                        struct weight_matrix* W2, int k){
     // update back prop params once
-    float* dZ = loss_function(AL,k);
-    float l = 1/dW->cols;
-    for (int i = 0; i < dW->rows; i++){
-        for (int j = 0; j < dW->cols; j++){
-            dW->weights[i][j] = l*(dZ[i]*AL->N[j].activation);
+    float* dZ2 = loss_function(A3,k);
+    float l = 1.0/dW2->cols;
+    for (int i = 0; i < dW2->rows; i++){
+        dB2->bias[i] = l*dZ2[i];
+        for (int j = 0; j < dW2->cols; j++){
+            dW2->weights[i][j] = l*(dZ2[i]*A3->N[j].activation);
         }
-    }    
-    for(int i = 0; i< dB->size; i++){
-        dB->bias[i] = l*dZ[i];
+    }  
+    printf("\n");
+    // calculating dZ1
+    float*dZ1 = (float*)malloc(sizeof(float)*A2->num_neurons);
+    for (int i = 0; i < A2->num_neurons; i++){
+        dZ1[i] = 0.0;
+        for (int j = 0; j < W2->rows; j++){
+            dZ1[i] += dZ2[j]*W2->weights[j][i];
+        }
+    }  
+    printf("\n");
+    // calculating dW1 and dB1
+    for (int i = 0; i < dW1->rows; i++){
+        dB1->bias[i] = l*dZ1[i];
+        for (int j = 0; j < dW1->cols; j++){
+            dW1->weights[i][j] = l*(dZ1[i]*A2->N[j].activation);
+        }
+    }  
+}
+
+void update_params(struct neural_network*NN){
+    for (int i = 0; i < NN->W1->rows; i++){
+        NN->B1->bias[i] += NN->dB1->bias[i];
+        for (int j = 0; j < NN->W1->cols; j++){
+            NN->W1->weights[i][j] += NN->dW1->weights[i][j];
+        }
+    }
+    for (int i = 0; i < NN->W2->rows; i++){
+        NN->B2->bias[i] += NN->dB2->bias[i];
+        for (int j = 0; j < NN->W2->cols; j++){
+            NN->W2->weights[i][j] += NN->dW2->weights[i][j];
+        }
     }
 }
 
-void param_update(){
-}
 
 int main(){
     struct neuron_layer*A1 = layer_constructor(784);
     struct neuron_layer*A2 = layer_constructor(10);
     struct neuron_layer*A3 = layer_constructor(10);
     struct weight_matrix*W1 = weight_matrix_constructor(10,784);
-    // struct weight_matrix*dW1 = weight_matrix_constructor(10,784);
+    struct weight_matrix*dW1 = weight_matrix_constructor(10,784);
     struct weight_matrix*W2 = weight_matrix_constructor(10,10);
     struct weight_matrix*dW2 = weight_matrix_constructor(10,10);
     struct bias_matrix*B1 = bias_matrix_constructor(10);
-    // struct bias_matrix*dB1 = bias_matrix_constructor(10);
+    struct bias_matrix*dB1 = bias_matrix_constructor(10);
     struct bias_matrix*B2 = bias_matrix_constructor(10);
     struct bias_matrix*dB2 = bias_matrix_constructor(10);
 
+    struct neural_network*NN = (struct neural_network*)malloc(sizeof(struct neural_network));
+    NN->B1 = B1;
+    NN->B2 = B2;
+    NN->W1 = W1;
+    NN->W2 = W2;
+    NN->dB1 = dB1;
+    NN->dB2 = dB2;
+    NN->dW1 = dW1;
+    NN->dW2 = dW2;
+    
     // for(int i = 0; i < A1->num_neurons;i++){
     //     printf("%f\n",A1->N[i].activation);
     // }
@@ -272,13 +329,13 @@ int main(){
         }
     }
 
-    // for (int i = 0; i <= 784; i++){
-    //     float f = activations->neuron_activation[i];
-    //     A1->N[i].activation = f;
-    //     printf("%f\n",A1->N[i].activation);
-    // }
-    forward_propogate_step(W1,B1,A1,A2);
-    forward_propogate_step(W2,B2,A2,A3);
+    for (int i = 0; i <= 784; i++){
+        float f = activations->neuron_activation[i];
+        A1->N[i].activation = f;
+        printf("%f\n",A1->N[i].activation);
+    }
+    forward_propogate_step(NN->W1,NN->B1,A1,A2);
+    forward_propogate_step(NN->W2,NN->B2,A2,A3);
     softmax(A3);
 
     printf("\n""\n");
@@ -286,7 +343,10 @@ int main(){
         printf("%f\n",A3->N[i].activation);
     }
     printf("\n""\n");
-    back_propogate_step(A3,dB2,dW2,10);
+    back_propogate_step(A3,A2,A1,dB2,dB1,dW2,dW1,W2,label_array[j]);
+    
+    update_params(NN);
+
     
     return 1;
 }

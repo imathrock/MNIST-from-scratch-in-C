@@ -16,7 +16,7 @@
 #include<math.h>
 #include<malloc.h>
 
-struct pixel_data{
+typedef struct pixel_data{
     uint8_t* neuron_activation;
     uint32_t size;
     uint32_t rows;
