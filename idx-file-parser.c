@@ -122,6 +122,50 @@ struct pixel_data* get_image_pixel_data(FILE*file){
     return neuron_activations;
 }
 
+// /// @brief Reads pixel data into later
+// /// @param file 
+// /// @param A 
+// /// @param index 
+// void pixel_data_into_layer(FILE*file,struct neuron_layer*A, int index){
+//     if(file == NULL){perror("error opening file");printf("File pointer is null");return NULL;}
+//     // Read magic number
+//     uint32_t magic_number;
+//     fread(&magic_number, sizeof(uint32_t), 1, file);
+//     printf("Magic number: %u\n", big_to_little_endian(magic_number));
+//     // Read size
+//     uint32_t size;
+//     fread(&size, sizeof(uint32_t), 1, file);
+//     size = big_to_little_endian(size);
+//     printf("size of array: %u\n", size);
+//     printf("%s\n","FINALIZER NAME: image_data_finalizer");
+
+//     // Read rows
+//     uint32_t rows;
+//     fread(&rows, sizeof(uint32_t), 1, file);
+//     rows = big_to_little_endian(rows);
+//     printf("Number of rows: %u\n", rows);
+
+//     // Read cols
+//     uint32_t cols;
+//     fread(&cols, sizeof(uint32_t), 1, file);
+//     cols = big_to_little_endian(cols);
+//     printf("number of columns: %u\n", cols);
+
+//     // allocate space for char array of numbers and write the labels in it
+//     unsigned int numchar = size*rows*cols;
+//     uint8_t* activation_values = malloc(sizeof(uint8_t)*numchar);
+//     size_t bytes_read = fread(activation_values, sizeof(unsigned char), numchar, file);
+//     if (bytes_read != numchar) {
+//         printf("%s\n","not enough bytes read");
+//     }
+//     for (unsigned int i = 0; i < 10; i++) {
+//     printf("%d ", activation_values[i]);
+//     }
+//     printf("\n");
+//     fclose(file);
+//     return;
+// }
+
 
 /// @brief finalizer to free the label array.
 /// @param label_array 

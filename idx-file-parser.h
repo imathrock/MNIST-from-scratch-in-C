@@ -21,7 +21,7 @@ typedef struct pixel_data{
     uint32_t size;
     uint32_t rows;
     uint32_t cols;
-};
+}pixel_data;
 
 uint32_t big_to_little_endian(uint32_t value);
 

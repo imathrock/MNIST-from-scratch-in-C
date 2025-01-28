@@ -58,7 +58,7 @@ struct neuron_layer* layer_constructor(int num_neurons){
     layer->N = (struct neuron*)malloc(num_neurons*sizeof(struct neuron));
     if(layer->N == NULL){printf("Failed to Allocate memory"); exit(1);}
     for(int i = 0; i < num_neurons; i++){
-        layer->N[i].activation = ((float)rand() / RAND_MAX) - 0.5;
+        layer->N[i].activation = ((float)rand() / (float)RAND_MAX) - 0.5;
     }
     return layer;
 }
@@ -181,9 +181,21 @@ void forward_propogate_step(struct weight_matrix*W,struct bias_matrix*B, struct 
 /// @param A Final output layer
 void softmax(struct neuron_layer* A){
     int k = A->num_neurons;
+    float max_activation = A->N[0].activation;
+    for (int i = 1; i < k; i++) {
+        if (A->N[i].activation > max_activation) {
+            max_activation = A->N[i].activation;
+        }
+    }
+    // Compute the exponentials and their sum
     float expsum = 0.0f;
-    for (int i = 0; i < k; i++){
-        expsum += exp(A->N[i].activation);
+    for (int i = 0; i < k; i++) {
+        A->N[i].activation = exp(A->N[i].activation - max_activation);
+        expsum += A->N[i].activation;
+    }
+    // Normalize to get the softmax probabilities
+    for (int i = 0; i < k; i++) {
+        A->N[i].activation /= expsum;
     }
 }
 
@@ -207,60 +219,126 @@ float* loss_function(struct neuron_layer* final_layer, int k){
     float* loss = malloc(final_layer->num_neurons*sizeof(float));
     float* j = one_hot_encode(k);
     for(int i = 0;i<final_layer->num_neurons;i++){
-        loss[i] = pow(final_layer->N[i].activation-j[i],2);
-        printf("%f\n",loss[i]);
-    }
+        loss[i] = final_layer->N[i].activation-j[i];
+    }   
     free(j);
     return loss;
 }
 
+
+/// @brief 
+/// @param A3 
+/// @param A2 
+/// @param dB2 
+/// @param dB1 
+/// @param dW2 
+/// @param dW1 
+/// @param W2 
+/// @param k 
 void back_propogate_step(struct neuron_layer* A3,struct neuron_layer* A2,struct neuron_layer* A1,
                         struct bias_matrix*dB2,struct bias_matrix*dB1,
                         struct weight_matrix* dW2,struct weight_matrix* dW1,
                         struct weight_matrix* W2, int k){
     // update back prop params once
+    printf("%s","backpropogating");
     float* dZ2 = loss_function(A3,k);
+    for (int i = 0; i < dW2->rows; i++) {
+    printf("dZ2[%d] = %f\n", i, dZ2[i]);
+    }
     float l = 1.0/dW2->cols;
     for (int i = 0; i < dW2->rows; i++){
         dB2->bias[i] = l*dZ2[i];
         for (int j = 0; j < dW2->cols; j++){
-            dW2->weights[i][j] = l*(dZ2[i]*A3->N[j].activation);
+            dW2->weights[i][j] = l*(dZ2[i]*A2->N[j].activation);
+            printf("%s",".");
+            // printf("dW2[%d][%d] = %f\n", i, j, dW2->weights[i][j]);
         }
     }  
-    printf("\n");
     // calculating dZ1
     float*dZ1 = (float*)malloc(sizeof(float)*A2->num_neurons);
     for (int i = 0; i < A2->num_neurons; i++){
         dZ1[i] = 0.0;
         for (int j = 0; j < W2->rows; j++){
             dZ1[i] += dZ2[j]*W2->weights[j][i];
+            printf("%s",".");
         }
+        dZ1[i] *= (A2->N[i].activation > 0) ? 1.0f : 0.0f;
+        // printf("dZ1[%d] = %f, activation = %f\n", i, dZ1[i], A2->N[i].activation);
     }  
-    printf("\n");
     // calculating dW1 and dB1
     for (int i = 0; i < dW1->rows; i++){
         dB1->bias[i] = l*dZ1[i];
         for (int j = 0; j < dW1->cols; j++){
-            dW1->weights[i][j] = l*(dZ1[i]*A2->N[j].activation);
+            dW1->weights[i][j] = l*(dZ1[i]*A1->N[j].activation);
+            if (isnan(dW1->weights[i][j]) || isinf(dW1->weights[i][j])) {
+                printf("Invalid, NAN: %f, %f\n",dZ1[i], A1->N[j].activation);
+                exit(1);
+            }
         }
     }  
+    free(dZ1);
 }
-
-void update_params(struct neural_network*NN){
+ 
+/// @brief Updates the weights and biases after back propogation
+/// @param NN , whole neural network
+/// @param a Learning rate
+void update_params(struct neural_network*NN,float a){
     for (int i = 0; i < NN->W1->rows; i++){
-        NN->B1->bias[i] += NN->dB1->bias[i];
+        NN->B1->bias[i] += a*NN->dB1->bias[i];
         for (int j = 0; j < NN->W1->cols; j++){
-            NN->W1->weights[i][j] += NN->dW1->weights[i][j];
+            NN->W1->weights[i][j] += a*NN->dW1->weights[i][j];
         }
     }
     for (int i = 0; i < NN->W2->rows; i++){
-        NN->B2->bias[i] += NN->dB2->bias[i];
+        NN->B2->bias[i] += a*NN->dB2->bias[i];
         for (int j = 0; j < NN->W2->cols; j++){
-            NN->W2->weights[i][j] += NN->dW2->weights[i][j];
+            NN->W2->weights[i][j] += a*NN->dW2->weights[i][j];
         }
     }
 }
 
+/// @brief Trains the NN by Reads values from the idx file, forward propogates, backward propogates and updates params.
+/// @param NN Weights, biases and derivatives of them
+/// @param A1 Input layer
+/// @param A2 Hidden Layer
+/// @param A3 Output layer
+void train_network(struct neural_network*NN, struct neuron_layer*A1,struct neuron_layer*A2,struct neuron_layer*A3,
+                    struct pixel_data*activations,unsigned char* label_array){
+    for(unsigned int i = 0; i<30;i++){
+        printf("Image of number:  %d\n",label_array[i]);
+        printf("Index :  %d\n",i);
+        for (unsigned int j = (784*i); j <= (784*(i+1)); j++){
+            float f = activations->neuron_activation[j];
+            A1->N[j].activation = f/255.0;
+            printf(":  %f\n",f);
+        }
+
+        forward_propogate_step(NN->W1,NN->B1,A1,A2);
+        printf("%s\n","Step 1 forward prop");
+        printf("\n");
+        printf("%s\n","A2 ReLU");
+        for(int i = 0; i < A2->num_neurons;i++){
+            printf("%f\n",A2->N[i].activation);
+        }
+        forward_propogate_step(NN->W2,NN->B2,A2,A3);
+        printf("%s\n","Step 2 forward prop");
+        printf("\n");
+        printf("%s\n","A3 fp");
+        for(int i = 0; i < A3->num_neurons;i++){
+            printf("%f\n",A3->N[i].activation);
+        }
+        softmax(A3);
+        printf("\n");
+        printf("%s\n","A3 softmax");
+        for(int i = 0; i < A3->num_neurons;i++){
+            printf("%f\n",A3->N[i].activation);
+        }
+        back_propogate_step(A3,A2,A1,NN->dB2,NN->dB1,NN->dW2,NN->dW1,NN->W2,label_array[i]);
+        update_params(NN,0.005);
+        printf("\n""\n");
+
+    }
+}
 
 int main(){
     struct neuron_layer*A1 = layer_constructor(784);
@@ -284,23 +362,9 @@ int main(){
     NN->dB2 = dB2;
     NN->dW1 = dW1;
     NN->dW2 = dW2;
-    
-    // for(int i = 0; i < A1->num_neurons;i++){
-    //     printf("%f\n",A1->N[i].activation);
-    // }
-
-    // printf("\n""\n");
-    // for(int i = 0; i < A2->num_neurons;i++){
-    //     printf("%f\n",A2->N[i].activation);
-    // }
-
-    // printf("\n""\n");
-    // for(int i = 0; i < A3->num_neurons;i++){
-    //     printf("%f\n",A3->N[i].activation);
-    // }
 
     int j = 0;
-    FILE* file = fopen("data/t10k-labels.idx1-ubyte", "r");
+    FILE* file = fopen("data/train-labels.idx1-ubyte", "r");
     unsigned char* label_array = get_image_labels(file);
     printf("\n\n");
     printf("%d\n",label_array[j]);
@@ -310,7 +374,7 @@ int main(){
         printf("%f\n",star[i]);
     }
 
-    file = fopen("data/t10k-images.idx3-ubyte", "rb");
+    file = fopen("data/train-images.idx3-ubyte", "rb");
     struct pixel_data* activations = get_image_pixel_data(file);
     for (int i = (784*j); i < (784*(j+1)); i++){
         if(i%28 == 0){
@@ -328,25 +392,9 @@ int main(){
             }
         }
     }
+    printf("\n");
 
-    for (int i = 0; i <= 784; i++){
-        float f = activations->neuron_activation[i];
-        A1->N[i].activation = f;
-        printf("%f\n",A1->N[i].activation);
-    }
-    forward_propogate_step(NN->W1,NN->B1,A1,A2);
-    forward_propogate_step(NN->W2,NN->B2,A2,A3);
-    softmax(A3);
-
-    printf("\n""\n");
-    for(int i = 0; i < A3->num_neurons;i++){
-        printf("%f\n",A3->N[i].activation);
-    }
-    printf("\n""\n");
-    back_propogate_step(A3,A2,A1,dB2,dB1,dW2,dW1,W2,label_array[j]);
-    
-    update_params(NN);
-
+    train_network(NN,A1,A2,A3,activations,label_array);
     
     return 1;
 }
