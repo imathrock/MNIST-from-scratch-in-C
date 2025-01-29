@@ -204,18 +204,18 @@ float* one_hot_encode(int k){
 /// @return float array with loss values
 float* loss_function(struct neuron_layer* final_layer, int k) {
     float* loss = malloc(final_layer->num_neurons * sizeof(float));
-    // if (loss == NULL) {
-    //     printf("Failed to allocate memory for loss array\n");
-    //     exit(1);
-    // }
+    if (loss == NULL) {
+        printf("Failed to allocate memory for loss array\n");
+        exit(1);
+    }
     float* j = one_hot_encode(k);
-    // if (j == NULL) {
-    //     printf("Failed to allocate memory for one-hot encoding\n");
-    //     free(loss);
-    //     exit(1);
-    // }
+    if (j == NULL) {
+        printf("Failed to allocate memory for one-hot encoding\n");
+        free(loss);
+        exit(1);
+    }
     for (int i = 0; i < final_layer->num_neurons; i++) {
-        loss[i] = final_layer->N[i].activation - j[i];
+        loss[i] = pow(final_layer->N[i].activation - j[i],2);
     }
     free(j);
     return loss;
@@ -232,10 +232,7 @@ void backpropogate(struct neural_network* NN, struct neuron_layer* A3, struct ne
     for (int i = 0; i < NN->dW2->rows; i++) {
         printf("dZ2[%d] = %f\n", i, dZ2[i]);
     }
-
     float dampener_coef = 1.0 / NN->dW2->cols;
-    printf("a");
-
     // Update dB2 and dW2
     for (int i = 0; i < NN->dW2->rows; i++) {
         if (i >= NN->dB2->size) {
@@ -259,10 +256,8 @@ void backpropogate(struct neural_network* NN, struct neuron_layer* A3, struct ne
 
     for (int i = 0; i < A2->num_neurons; i++) {
         dZ1[i] = 0.0;
-        printf("Processing i = %d\n", i);
         for (int k = 0; k < NN->W2->rows; k++) {
             dZ1[i] += dZ2[k] * NN->W2->weights[k][i];
-            printf("Processing k = %d\n", k);
         }
         dZ1[i] *= (A2->N[i].activation > 0) ? 1.0f : 0.0f;
     }
@@ -279,27 +274,30 @@ void backpropogate(struct neural_network* NN, struct neuron_layer* A3, struct ne
     free(dZ1);
     free(dZ2);
     printf("backpropogated\n");
+    return;
 }
 
 /// @brief Updates the weights and biases after back propogation
 /// @param NN , whole neural network
 /// @param a Learning rate
 void update_params(struct neural_network*NN,float a){
+    printf("Params updating\n");
     for (int i = 0; i < NN->W1->rows; i++){
         NN->B1->bias[i] += a*NN->dB1->bias[i];
-        for (int j = 0; j < NN->W1->cols; j++)
-        {NN->W1->weights[i][j] += a*NN->dW1->weights[i][j];}}
+        for (int k = 0; k < NN->W1->cols; k++)
+        {NN->W1->weights[i][k] += a*NN->dW1->weights[i][k];}}
+
     for (int i = 0; i < NN->W2->rows; i++){
         NN->B2->bias[i] += a*NN->dB2->bias[i];
         for (int j = 0; j < NN->W2->cols; j++)
         {NN->W2->weights[i][j] += a*NN->dW2->weights[i][j];}}
-    printf("Params updated%s\n");
+    printf("Params updated\n");
 }
 
 void train_network(struct neural_network*NN,struct neuron_layer* A3,
-struct neuron_layer* A2,struct neuron_layer* A1,struct pixel_data*activations,unsigned char* label_array){
+struct neuron_layer* A2,struct neuron_layer* A1,struct pixel_data*activations,
+unsigned char* label_array,float Learning_rate){
 
-    float Learning_rate = 0.01;
     int j=0;
         for(unsigned int i = (784*j); i < (784*(j+1)); i++){
         A1->N[i].activation = activations->neuron_activation[i]/255.0;
@@ -393,7 +391,6 @@ int main(){
     j++;
         for(unsigned int i = (784*j); i < (784*(j+1)); i++){
         A1->N[i].activation = activations->neuron_activation[i]/255.0;
-        // printf("%d\n",i);
         }
     
         forward_propogate_step(NN->W1,NN->B1,A1,A2);
@@ -420,6 +417,8 @@ int main(){
         }
 
         backpropogate(NN,A3,A2,A1,label_array[j]);
+        printf("%s\n","Test phrase");
+
         update_params(NN,Learning_rate);
 
 
