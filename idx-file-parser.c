@@ -17,6 +17,9 @@
 
 #include"idx-file-parser.h"
 
+#define LABEL_MAGIC_NUMBER 0x00000801
+#define IMAGE_MAGIC_NUMBER 0x00000803
+
 /// @brief changes big endian to little endian
 /// @param value big endian 32 bit integer
 /// @return little endian 32 bit integer
@@ -75,48 +78,73 @@ unsigned char* get_image_labels(FILE*file){
     ........
     xxxx     unsigned byte   ??               pixel
 */
-struct pixel_data* get_image_pixel_data(FILE*file){
-    if(file == NULL){perror("error opening file");printf("File pointer is null");return NULL;}
+struct pixel_data* get_image_pixel_data(FILE* file) {
+    if (file == NULL) {
+        perror("Error opening file");
+        return NULL;
+    }
 
     struct pixel_data* neuron_activations = malloc(sizeof(struct pixel_data));
+    if (neuron_activations == NULL) {
+        perror("Failed to allocate memory for neuron_activations");
+        fclose(file);
+        return NULL;
+    }
 
-    // Read magic number
+    // Read and validate magic number
     uint32_t magic_number;
-    fread(&magic_number, sizeof(uint32_t), 1, file);
-    printf("Magic number: %u\n", big_to_little_endian(magic_number));
-    // Read size
-    uint32_t size;
-    fread(&size, sizeof(uint32_t), 1, file);
+    if (fread(&magic_number, sizeof(uint32_t), 1, file) != 1) {
+        perror("Failed to read magic number");
+        fclose(file);
+        free(neuron_activations);
+        return NULL;
+    }
+    magic_number = big_to_little_endian(magic_number);
+    if (magic_number != IMAGE_MAGIC_NUMBER) {
+        printf("Error: Invalid magic number for image file. Expected %u, got %u.\n", IMAGE_MAGIC_NUMBER, magic_number);
+        fclose(file);
+        free(neuron_activations);
+        return NULL;
+    }
+
+    // Read size, rows, and columns
+    uint32_t size, rows, cols;
+    if (fread(&size, sizeof(uint32_t), 1, file) != 1 ||
+        fread(&rows, sizeof(uint32_t), 1, file) != 1 ||
+        fread(&cols, sizeof(uint32_t), 1, file) != 1) {
+        perror("Failed to read image metadata");
+        fclose(file);
+        free(neuron_activations);
+        return NULL;
+    }
     size = big_to_little_endian(size);
-    printf("size of array: %u\n", size);
-    printf("%s\n","FINALIZER NAME: image_data_finalizer");
-    neuron_activations->size = size;
-
-    // Read rows
-    uint32_t rows;
-    fread(&rows, sizeof(uint32_t), 1, file);
     rows = big_to_little_endian(rows);
-    printf("Number of rows: %u\n", rows);
-    neuron_activations->rows = rows;
-
-    // Read cols
-    uint32_t cols;
-    fread(&cols, sizeof(uint32_t), 1, file);
     cols = big_to_little_endian(cols);
-    printf("number of columns: %u\n", cols);
+
+    neuron_activations->size = size;
+    neuron_activations->rows = rows;
     neuron_activations->cols = cols;
 
-    // allocate space for char array of numbers and write the labels in it
-    unsigned int numchar = size*rows*cols;
-    uint8_t* activation_values = malloc(sizeof(uint8_t)*numchar);
-    size_t bytes_read = fread(activation_values, sizeof(unsigned char), numchar, file);
+    // Allocate memory for pixel data
+    unsigned int numchar = size * rows * cols;
+    uint8_t* activation_values = (uint8_t*)malloc(sizeof(uint8_t) * numchar);
+    if (activation_values == NULL) {
+        perror("Failed to allocate memory for activation_values");
+        fclose(file);
+        free(neuron_activations);
+        return NULL;
+    }
+
+    // Read pixel data
+    size_t bytes_read = fread(activation_values, sizeof(uint8_t), numchar, file);
     if (bytes_read != numchar) {
-        printf("%s\n","not enough bytes read");
+        printf("Error: Not enough bytes read. Expected %u, got %zu.\n", numchar, bytes_read);
+        fclose(file);
+        free(activation_values);
+        free(neuron_activations);
+        return NULL;
     }
-    for (unsigned int i = 0; i < 10; i++) {
-    printf("%d ", activation_values[i]);
-    }
-    printf("\n");
+
     neuron_activations->neuron_activation = activation_values;
     fclose(file);
     return neuron_activations;
