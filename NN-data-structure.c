@@ -1,8 +1,3 @@
-/*
-Functions needed:
-    Train Network
-*/
-
 #include<stdio.h>
 #include<stdlib.h>
 #include<stdint.h>
@@ -138,9 +133,9 @@ void ReLU(struct activations*A){
 /// @brief Takes Derivative of ReLU and puts it other activation struct
 /// @param A 
 /// @param Z_ReLU
-void ReLU_derivative(struct activations*Z_ReLU,struct activations*A){
+void ReLU_derivative(struct activations*A){
     for (int i = 0; i < A->size; i++) 
-    {Z_ReLU->activations[i] = (A->activations[i] <= 0.0) ? 0.0 : 1.0;}
+    {A->activations[i] = (A->activations[i] <= 0.0) ? 0.0 : 1.0;}
 }
 
 /// @brief Applies Softmax to the activation layer
@@ -198,7 +193,7 @@ void calc_grad_activation(struct activations* dZ_curr,struct layer*L,struct acti
     printf("calculating gradient activation\n");
     for (int i = 0; i < L->cols; i++){
         for (int j = 0; j < L->rows; j++){
-            dZ_curr->activations[i] += L->Weights[i][j]*dZ_prev->activations[j];
+            dZ_curr->activations[i] += L->Weights[j][i]*dZ_prev->activations[j];
         }
         dZ_curr->activations[i] *= A_curr->activations[i];
     }
@@ -230,13 +225,13 @@ void back_propogate_step(struct layer*L,struct layer*dL,struct activations* dZ,s
 /// @brief Given original weights, biases and gradient, updates all the values accordingly
 /// @param L Layer
 /// @param dL Gradient
-void param_update(struct layer*L,struct layer*dL){
+void param_update(struct layer*L,struct layer*dL, float Learning_Rate){
     if(dL->rows != L->rows || dL->cols != L->cols){perror("The Gradient and Layer matrices do not match");exit(1);}
     printf("params_updating\n");
     for (int i = 0; i < dL->rows; i++){
-        L->biases[i] += dL->biases[i];
+        L->biases[i] += Learning_Rate*dL->biases[i];
         for (int j = 0; j < dL->cols; j++){
-            L->Weights[i][j] += dL->Weights[i][j];}
+            L->Weights[i][j] += Learning_Rate*dL->Weights[i][j];}
     }
     printf("params_updated\n");
 }
@@ -259,20 +254,39 @@ void input_data(struct pixel_data* pixel_data,int k,struct activations*A){
     }
 }
 
+void show_image(struct activations*A){
+    for (int i = 0; i < 784; i++){
+        if(i%28 == 0){
+            printf("\n");
+            if (A->activations[i] > 1) {
+                printf("# ");  // Brighter pixel
+            } else {
+                printf(". ");  // Darker pixel
+            }
+        }else{
+            if (A->activations[i] > 1) {
+                printf("# ");  // Brighter pixel
+            } else {
+                printf(". ");  // Darker pixel
+            }
+        }
+    }
+    printf("\n");
+}
+
 int main(){
 
     // Parser Testing
-    int j = 0;
     FILE* file = fopen("data/train-labels.idx1-ubyte", "r");
     unsigned char* label_array = get_image_labels(file);
     printf("\n");
-    printf("%d\n",label_array[j]);
+    printf("%d\n",label_array[0]);
     printf("\n");
-    float* star = one_hot_encode(label_array[j]);
+    float* star = one_hot_encode(label_array[0]);
     for(int i = 0; i< 10; i++){printf("%f\n",star[i]);}
     file = fopen("data/train-images.idx3-ubyte", "rb");
     struct pixel_data* pixel_data = get_image_pixel_data(file);
-    for (int i = (784*j); i < (784*(j+1)); i++){
+    for (int i = 0; i < 784; i++){
         if(i%28 == 0){
             printf("\n");
             if (pixel_data->neuron_activation[0][i] > 1) {
@@ -304,57 +318,33 @@ int main(){
     struct activations*A2 = init_activations(LL2);
     struct activations*A3 = init_activations(LL3);
 
-    struct activations*dZ1 = init_activations(LL1);
+    // struct activations*dZ1 = init_activations(LL1);
     struct activations*dZ2 = init_activations(LL2);
     struct activations*loss = init_activations(LL3);
 
-    // printf("A1 vals:\n");
-    // print_activations(A1);
-
-    // printf("    A2 vals         :\n");
-    // print_activations(A2);
-
-    // printf("    A3 vals         :\n");
-    // print_activations(A3);
-
-    // forward_prop_step(A1,L1,A2);
-    // printf("Post forward prop A2 vals:\n");
-    // print_activations(A2);
-
-    // ReLU(A2);
-    // printf("Post ReLU A2 vals         :\n");
-    // print_activations(A2);
-
-    // ReLU_derivative(dZ2,A2);
-    // printf("ReLU_derivative dZ2 vals  :\n");
-    // print_activations(dZ2);
-
-    input_data(pixel_data,pixel_data->size-1,A1);
-
-    for (int i = 0; i < 784; i++){
-        if(i%28 == 0){
-            printf("\n");
-            if (A1->activations[i] > 1) {
-                printf("# ");  // Brighter pixel
-            } else {
-                printf(". ");  // Darker pixel
-            }
-        }else{
-            if (A1->activations[i] > 1) {
-                printf("# ");  // Brighter pixel
-            } else {
-                printf(". ");  // Darker pixel
-            }
-        }
+    float Learning_Rate = 0.01;
+    
+    for (int k = 0; k < 500; k++){
+        printf("Image number: %d\n", k);
+        input_data(pixel_data,k,A1);
+        show_image(A1);
+        forward_prop_step(A1,L1,A2);
+        ReLU(A2);
+        forward_prop_step(A2,L2,A3);
+        softmax(A3);
+        printf("Prediction for: %d\n",label_array[k]);
+        print_activations(A3);
+        loss_function(loss,A3,label_array[k]);
+        printf("Loss Func:\n");
+        print_activations(loss);
+        back_propogate_step(L2,dL2,loss,A2);
+        ReLU_derivative(A2);
+        calc_grad_activation(dZ2,L2,loss,A2);
+        back_propogate_step(L1,dL1,dZ2,A1);
+        param_update(L1,dL1,Learning_Rate);
+        param_update(L2,dL2,Learning_Rate);
     }
-    // printf("dZ1 vals:\n");
-    // print_activations(dZ1);
 
-    // printf("dZ2 vals:\n");
-    // print_activations(dZ2);
-
-    // printf("loss vals:\n");
-    // print_activations(loss);
 
     image_label_finalizer(label_array);
 
