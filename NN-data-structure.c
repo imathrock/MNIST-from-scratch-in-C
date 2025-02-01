@@ -5,6 +5,8 @@
 
 #include"idx-file-parser.h"
 
+#define BATCH_SIZE 32
+
 /// @brief Sturct containing pointers to Weights and biases of the layers.
 typedef struct layer{
     float**Weights;
@@ -140,17 +142,27 @@ void ReLU_derivative(struct activations*A){
 
 /// @brief Applies Softmax to the activation layer
 /// @param A 
-void softmax(struct activations*A){
+void softmax(struct activations* A) {
     printf("Applying softmax\n");
     int k = A->size;
     float max_activation = A->activations[0];
-    for (int i = 1; i < k; i++) 
-    {if (A->activations[i] > max_activation) {max_activation = A->activations[i];}}
+    for (int i = 1; i < k; i++) {
+        if (A->activations[i] > max_activation) {
+            max_activation = A->activations[i];
+        }
+    }
     float expsum = 0.0f;
-    for (int i = 0; i < k; i++) 
-    {A->activations[i] = exp(A->activations[i] - max_activation);
-    expsum += A->activations[i];}
-    for (int i = 0; i < k; i++) {A->activations[i] /= expsum;}
+    for (int i = 0; i < k; i++) {
+        A->activations[i] = exp(A->activations[i] - max_activation); // Numerical stability
+        expsum += A->activations[i];
+    }
+    if (expsum == 0.0f) {
+        perror("Softmax error: expsum is zero");
+        exit(1);
+    }
+    for (int i = 0; i < k; i++) {
+        A->activations[i] /= expsum;
+    }
     printf("Applied\n");
 }
 
@@ -176,7 +188,7 @@ void loss_function(struct activations* dZ_loss,struct activations* Fl, int k) {
         exit(1);
     }
     for (int i = 0; i < Fl->size; i++) {
-        dZ_loss->activations[i] = pow(Fl->activations[i] - j[i],2);
+        dZ_loss->activations[i] = Fl->activations[i] - j[i];
     }
     free(j);
 }
@@ -192,6 +204,7 @@ void calc_grad_activation(struct activations* dZ_curr,struct layer*L,struct acti
     if(L->cols != dZ_curr->size){perror("The Layer matricies and curr_grad layer matricies do not match");exit(1);}
     printf("calculating gradient activation\n");
     for (int i = 0; i < L->cols; i++){
+        dZ_curr->activations[i] = 0.0;
         for (int j = 0; j < L->rows; j++){
             dZ_curr->activations[i] += L->Weights[j][i]*dZ_prev->activations[j];
         }
@@ -322,28 +335,35 @@ int main(){
     struct activations*dZ2 = init_activations(LL2);
     struct activations*loss = init_activations(LL3);
 
-    float Learning_Rate = 0.01;
+    float Learning_Rate = 0.00001;
     
-    for (int k = 0; k < 500; k++){
-        printf("Image number: %d\n", k);
-        input_data(pixel_data,k,A1);
-        show_image(A1);
-        forward_prop_step(A1,L1,A2);
-        ReLU(A2);
-        forward_prop_step(A2,L2,A3);
-        softmax(A3);
-        printf("Prediction for: %d\n",label_array[k]);
-        print_activations(A3);
-        loss_function(loss,A3,label_array[k]);
-        printf("Loss Func:\n");
-        print_activations(loss);
-        back_propogate_step(L2,dL2,loss,A2);
-        ReLU_derivative(A2);
-        calc_grad_activation(dZ2,L2,loss,A2);
-        back_propogate_step(L1,dL1,dZ2,A1);
+    for (int i = 0; i < 10; i++)
+    {
+        for (int k = (100*i); k < (100*i+1); k++){
+            printf("Image number: %d\n", k);
+            input_data(pixel_data,k,A1);
+            // show_image(A1);
+            forward_prop_step(A1,L1,A2);
+            ReLU(A2);
+            printf("A3 Before:\n");
+            print_activations(A3);
+            forward_prop_step(A2,L2,A3);
+            printf("A3 Fp:\n");
+            print_activations(A3);
+            ReLU(A3);
+            softmax(A3);
+            printf("Prediction for: %d\n",label_array[k]);
+            print_activations(A3);
+            loss_function(loss,A3,label_array[k]);
+            back_propogate_step(L2,dL2,loss,A2);
+            ReLU_derivative(A2);
+            calc_grad_activation(dZ2,L2,loss,A2);
+            back_propogate_step(L1,dL1,dZ2,A1);
+        }
         param_update(L1,dL1,Learning_Rate);
         param_update(L2,dL2,Learning_Rate);
     }
+    
 
 
     image_label_finalizer(label_array);
