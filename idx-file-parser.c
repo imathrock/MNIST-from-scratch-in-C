@@ -83,14 +83,12 @@ struct pixel_data* get_image_pixel_data(FILE* file) {
         perror("Error opening file");
         return NULL;
     }
-
     struct pixel_data* neuron_activations = malloc(sizeof(struct pixel_data));
     if (neuron_activations == NULL) {
         perror("Failed to allocate memory for neuron_activations");
         fclose(file);
         return NULL;
     }
-
     // Read and validate magic number
     uint32_t magic_number;
     if (fread(&magic_number, sizeof(uint32_t), 1, file) != 1) {
@@ -106,7 +104,6 @@ struct pixel_data* get_image_pixel_data(FILE* file) {
         free(neuron_activations);
         return NULL;
     }
-
     // Read size, rows, and columns
     uint32_t size, rows, cols;
     if (fread(&size, sizeof(uint32_t), 1, file) != 1 ||
@@ -124,31 +121,45 @@ struct pixel_data* get_image_pixel_data(FILE* file) {
     neuron_activations->size = size;
     neuron_activations->rows = rows;
     neuron_activations->cols = cols;
-
-    // Allocate memory for pixel data
-    unsigned int numchar = size * rows * cols;
-    uint8_t* activation_values = (uint8_t*)malloc(sizeof(uint8_t) * numchar);
-    if (activation_values == NULL) {
-        perror("Failed to allocate memory for activation_values");
+    // Allocate memory for the 2D array
+    neuron_activations->neuron_activation = (uint8_t**)malloc(size * sizeof(uint8_t*));
+    if (neuron_activations->neuron_activation == NULL) {
+        perror("Failed to allocate memory for neuron_activation");
         fclose(file);
         free(neuron_activations);
         return NULL;
     }
-
+    for (uint32_t i = 0; i < size; i++) {
+        neuron_activations->neuron_activation[i] = (uint8_t*)malloc(rows * cols * sizeof(uint8_t));
+        if (neuron_activations->neuron_activation[i] == NULL) {
+            perror("Failed to allocate memory for neuron_activation[i]");
+            fclose(file);
+            for (uint32_t j = 0; j < i; j++) {
+                free(neuron_activations->neuron_activation[j]);
+            }
+            free(neuron_activations->neuron_activation);
+            free(neuron_activations);
+            return NULL;
+        }
+    }
     // Read pixel data
-    size_t bytes_read = fread(activation_values, sizeof(uint8_t), numchar, file);
-    if (bytes_read != numchar) {
-        printf("Error: Not enough bytes read. Expected %u, got %zu.\n", numchar, bytes_read);
-        fclose(file);
-        free(activation_values);
-        free(neuron_activations);
-        return NULL;
+    for (uint32_t i = 0; i < size; i++) {
+        size_t bytes_read = fread(neuron_activations->neuron_activation[i], sizeof(uint8_t), rows * cols, file);
+        if (bytes_read != rows * cols) {
+            printf("Error: Not enough bytes read for image %u. Expected %u, got %zu.\n", i, rows * cols, bytes_read);
+            fclose(file);
+            for (uint32_t j = 0; j < size; j++) {
+                free(neuron_activations->neuron_activation[j]);
+            }
+            free(neuron_activations->neuron_activation);
+            free(neuron_activations);
+            return NULL;
+        }
     }
-
-    neuron_activations->neuron_activation = activation_values;
     fclose(file);
     return neuron_activations;
 }
+
 
 /// @brief finalizer to free the label array.
 /// @param label_array 

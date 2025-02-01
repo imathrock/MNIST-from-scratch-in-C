@@ -1,17 +1,5 @@
 /*
 Functions needed:
-    Matrix multiplication
-    Matrix addition
-    ReLU
-    ReLU Derivative
-    Forward Propogate 
-    softmax
-
-    Loss Function
-    one hot encoder
-
-    Back propogate
-    Update params
     Train Network
 */
 
@@ -87,7 +75,7 @@ void free_layer(struct layer*Layer){
         Layer->biases = NULL; 
     }
     if (Layer->Weights != NULL) {
-        for (int i = 0; i < sizeof(Layer->Weights)/sizeof(float*); i++) {
+        for (unsigned int i = 0; i < sizeof(Layer->Weights)/sizeof(float*); i++) {
             if (Layer->Weights[i] != NULL) {
                 free(Layer->Weights[i]);
                 Layer->Weights[i] = NULL;
@@ -129,6 +117,7 @@ void free_activations(struct activations*a){
 void forward_prop_step(struct activations*A1,struct layer*L,struct activations*A2){
     if(A1->size != L->cols){perror("A1's size and L's weight's cols do not match"); exit(1);}
     if(A2->size != L->rows){perror("A2's size and L's weight's rows do not match"); exit(1);}
+    printf("forward propogating\n");
     for(int i = 0; i < L->rows; i++){
         A2->activations[i] = 0.0;
         for(int j = 0; j < L->cols; j++){
@@ -136,6 +125,7 @@ void forward_prop_step(struct activations*A1,struct layer*L,struct activations*A
         }
         A2->activations[i] += L->biases[i];
     }
+    printf("done\n");
 }
 
 /// @brief Applies ReLU to the activations
@@ -145,16 +135,18 @@ void ReLU(struct activations*A){
     {if(A->activations[i] < 0.0){A->activations[i] = 0.0;}}
 }
 
-/// @brief Takes Derivative of ReLU in the same activation struct
+/// @brief Takes Derivative of ReLU and puts it other activation struct
 /// @param A 
-void ReLU_derivative(struct activations*A){
+/// @param Z_ReLU
+void ReLU_derivative(struct activations*Z_ReLU,struct activations*A){
     for (int i = 0; i < A->size; i++) 
-    {A->activations[i] = (A->activations[i] < 0.0) ? 0.0 : 1.0;}
+    {Z_ReLU->activations[i] = (A->activations[i] <= 0.0) ? 0.0 : 1.0;}
 }
 
 /// @brief Applies Softmax to the activation layer
 /// @param A 
 void softmax(struct activations*A){
+    printf("Applying softmax\n");
     int k = A->size;
     float max_activation = A->activations[0];
     for (int i = 1; i < k; i++) 
@@ -164,6 +156,7 @@ void softmax(struct activations*A){
     {A->activations[i] = exp(A->activations[i] - max_activation);
     expsum += A->activations[i];}
     for (int i = 0; i < k; i++) {A->activations[i] /= expsum;}
+    printf("Applied\n");
 }
 
 /// @brief One hot encodes the error function
@@ -181,27 +174,90 @@ float* one_hot_encode(int k){
 /// @brief Loss function that tells us the error values
 /// @param final_layer 
 /// @param k size
-/// @return float array with loss values
-float* loss_function(struct activations* Fl, int k) {
-    float* loss = malloc(Fl->size * sizeof(float));
-    if (loss == NULL) {
-        printf("Failed to allocate memory for loss array\n");
-        exit(1);
-    }
+void loss_function(struct activations* dZ_loss,struct activations* Fl, int k) {
     float* j = one_hot_encode(k);
     if (j == NULL) {
         printf("Failed to allocate memory for one-hot encoding\n");
-        free(loss);
         exit(1);
     }
     for (int i = 0; i < Fl->size; i++) {
-        loss[i] = pow(Fl->activations[i] - j[i],2);
+        dZ_loss->activations[i] = pow(Fl->activations[i] - j[i],2);
     }
     free(j);
-    return loss;
+}
+
+/// @brief Calcualtes Gradient in activations given previous gradient.
+/// @param dZ_curr The gradient to be calculated
+/// @param L Weights and biases of the layer in front
+/// @param dZ_prev loss function of layer in front
+/// @param A_curr ReLU derivative of the current layer
+void calc_grad_activation(struct activations* dZ_curr,struct layer*L,struct activations* dZ_prev,struct activations*A_curr){
+    if(dZ_curr->size != A_curr->size){perror("The ReLU deriv and n-1 grad activation matricies do not match");exit(1);}
+    if(L->rows != dZ_prev->size){perror("The Layer matricies and gradient layer matricies do not match");exit(1);}
+    if(L->cols != dZ_curr->size){perror("The Layer matricies and curr_grad layer matricies do not match");exit(1);}
+    printf("calculating gradient activation\n");
+    for (int i = 0; i < L->cols; i++){
+        for (int j = 0; j < L->rows; j++){
+            dZ_curr->activations[i] += L->Weights[i][j]*dZ_prev->activations[j];
+        }
+        dZ_curr->activations[i] *= A_curr->activations[i];
+    }
+    printf("calculated\n");
 }
 
 
+/// @brief Conducts 1 step of back propogation and also updates parameters immediately
+/// @param L Layer's weights and biases
+/// @param dL Gradient layer
+/// @param dZ Loss function or activation gradient
+/// @param A n-1th layer
+void back_propogate_step(struct layer*L,struct layer*dL,struct activations* dZ,struct activations* A){
+    if(dL->rows != L->rows || dL->cols != L->cols){perror("The Gradient and Layer matrices do not match");exit(1);}
+    if(dZ->size != dL->rows){perror("Gradient activation and gradient layer matricies do not match");exit(1);}
+    if(A->size != dL->cols){perror("activation and GradientLayer matrices do not match");exit(1);}
+    printf("Backpropogating\n");
+    float dZsum = 0.0;
+    for (int i = 0; i < dZ->size; i++){dZsum += dZ->activations[i];}
+    float m = 1/(float)A->size;
+    for (int i = 0; i < dL->rows; i++){
+        dL->biases[i] = dZsum*m;
+        for (int j = 0; j < dL->cols; j++){
+            dL->Weights[i][j] = m*dZ->activations[i]*A->activations[j];}
+    }
+    printf("backpropogated\n");
+}
+
+/// @brief Given original weights, biases and gradient, updates all the values accordingly
+/// @param L Layer
+/// @param dL Gradient
+void param_update(struct layer*L,struct layer*dL){
+    if(dL->rows != L->rows || dL->cols != L->cols){perror("The Gradient and Layer matrices do not match");exit(1);}
+    printf("params_updating\n");
+    for (int i = 0; i < dL->rows; i++){
+        L->biases[i] += dL->biases[i];
+        for (int j = 0; j < dL->cols; j++){
+            L->Weights[i][j] += dL->Weights[i][j];}
+    }
+    printf("params_updated\n");
+}
+
+/// @brief Prints out activation values for debugging
+/// @param A 
+void print_activations(struct activations*A){
+    for(int i = 0; i < A->size; i++){printf("%f\n",A->activations[i]);}    
+}
+
+/// @brief Inputs image data into activation struct
+/// @param pixel_data 
+/// @param k index of image
+/// @param A 
+void input_data(struct pixel_data* pixel_data,int k,struct activations*A){
+    int numpx = pixel_data->rows*pixel_data->cols;
+    if (A->size != numpx){perror("Wrong layer passed to input");exit(1);}
+    for (int i = 0; i < numpx; i++){
+        A->activations[i] = pixel_data->neuron_activation[k][i];
+    }
+}
 
 int main(){
 
@@ -215,17 +271,17 @@ int main(){
     float* star = one_hot_encode(label_array[j]);
     for(int i = 0; i< 10; i++){printf("%f\n",star[i]);}
     file = fopen("data/train-images.idx3-ubyte", "rb");
-    struct pixel_data* activations = get_image_pixel_data(file);
+    struct pixel_data* pixel_data = get_image_pixel_data(file);
     for (int i = (784*j); i < (784*(j+1)); i++){
         if(i%28 == 0){
             printf("\n");
-            if (activations->neuron_activation[i] > 1) {
+            if (pixel_data->neuron_activation[0][i] > 1) {
                 printf("# ");  // Brighter pixel
             } else {
                 printf(". ");  // Darker pixel
             }
         }else{
-            if (activations->neuron_activation[i] > 1) {
+            if (pixel_data->neuron_activation[0][i] > 1) {
                 printf("# ");  // Brighter pixel
             } else {
                 printf(". ");  // Darker pixel
@@ -233,12 +289,72 @@ int main(){
         }
     }
     printf("\n");
-    int Learning_rate = 0.5;
 
-    struct layer*L1 = init_layer(32,32);
-    struct activations*A1 = init_activations(32);
-    
-    
+    int LL1 = 784;
+    int LL2 = 64;
+    int LL3 = 10;
+
+    struct layer*L1 = init_layer(LL2,LL1);
+    struct layer*L2 = init_layer(LL3,LL2);
+
+    struct layer*dL1 = init_layer(LL2,LL1);
+    struct layer*dL2 = init_layer(LL3,LL2);
+
+    struct activations*A1 = init_activations(LL1);
+    struct activations*A2 = init_activations(LL2);
+    struct activations*A3 = init_activations(LL3);
+
+    struct activations*dZ1 = init_activations(LL1);
+    struct activations*dZ2 = init_activations(LL2);
+    struct activations*loss = init_activations(LL3);
+
+    // printf("A1 vals:\n");
+    // print_activations(A1);
+
+    // printf("    A2 vals         :\n");
+    // print_activations(A2);
+
+    // printf("    A3 vals         :\n");
+    // print_activations(A3);
+
+    // forward_prop_step(A1,L1,A2);
+    // printf("Post forward prop A2 vals:\n");
+    // print_activations(A2);
+
+    // ReLU(A2);
+    // printf("Post ReLU A2 vals         :\n");
+    // print_activations(A2);
+
+    // ReLU_derivative(dZ2,A2);
+    // printf("ReLU_derivative dZ2 vals  :\n");
+    // print_activations(dZ2);
+
+    input_data(pixel_data,pixel_data->size-1,A1);
+
+    for (int i = 0; i < 784; i++){
+        if(i%28 == 0){
+            printf("\n");
+            if (A1->activations[i] > 1) {
+                printf("# ");  // Brighter pixel
+            } else {
+                printf(". ");  // Darker pixel
+            }
+        }else{
+            if (A1->activations[i] > 1) {
+                printf("# ");  // Brighter pixel
+            } else {
+                printf(". ");  // Darker pixel
+            }
+        }
+    }
+    // printf("dZ1 vals:\n");
+    // print_activations(dZ1);
+
+    // printf("dZ2 vals:\n");
+    // print_activations(dZ2);
+
+    // printf("loss vals:\n");
+    // print_activations(loss);
 
     image_label_finalizer(label_array);
 
