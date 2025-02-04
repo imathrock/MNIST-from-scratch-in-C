@@ -249,6 +249,19 @@ void param_update(struct layer*L,struct layer*dL, float Learning_Rate){
     printf("params_updated\n");
 }
 
+/// @brief Clears the Given layer
+/// @param L Layer
+void Multiply_Layer(struct layer*L,float num){
+    if(num>1){perror("Incorrect value passed\n"); exit(1);}
+    printf("params_updating\n");
+    for (int i = 0; i < L->rows; i++){
+        L->biases[i] *= 0;
+        for (int j = 0; j < L->cols; j++)
+            {L->Weights[i][j] *= 0;}
+    }
+    printf("params_updated\n");
+}
+
 /// @brief Prints out activation values for debugging
 /// @param A 
 void print_activations(struct activations*A){
@@ -327,26 +340,27 @@ int main(){
     struct layer*dL1 = init_layer(LL2,LL1);
     struct layer*dL2 = init_layer(LL3,LL2);
 
+    struct layer*sdL1 = init_layer(LL2,LL1);
+    struct layer*sdL2 = init_layer(LL3,LL2);
+
     struct activations*A1 = init_activations(LL1);
     struct activations*A2 = init_activations(LL2);
     struct activations*A3 = init_activations(LL3);
 
-    // struct activations*dZ1 = init_activations(LL1);
+    struct activations*avgloss = init_activations(LL3);
     struct activations*dZ2 = init_activations(LL2);
     struct activations*loss = init_activations(LL3);
 
     float Learning_Rate = 0.00001;
     
-    for (int i = 0; i < 10; i++)
+    for (int i = 0; i < 1500; i++)
     {
-        for (int k = (100*i); k < (100*i+1); k++){
+        for (int k = (32*i); k < (32*(i+1)); k++){
             printf("Image number: %d\n", k);
             input_data(pixel_data,k,A1);
             // show_image(A1);
             forward_prop_step(A1,L1,A2);
             ReLU(A2);
-            printf("A3 Before:\n");
-            print_activations(A3);
             forward_prop_step(A2,L2,A3);
             printf("A3 Fp:\n");
             print_activations(A3);
@@ -355,15 +369,22 @@ int main(){
             printf("Prediction for: %d\n",label_array[k]);
             print_activations(A3);
             loss_function(loss,A3,label_array[k]);
+            printf("Loss Func :\n");
+            print_activations(loss);
             back_propogate_step(L2,dL2,loss,A2);
             ReLU_derivative(A2);
             calc_grad_activation(dZ2,L2,loss,A2);
             back_propogate_step(L1,dL1,dZ2,A1);
+            param_update(sdL1,dL1,1);
+            param_update(sdL2,dL2,1);
         }
-        param_update(L1,dL1,Learning_Rate);
-        param_update(L2,dL2,Learning_Rate);
-    }
-    
+        Multiply_Layer(sdL1,1/32);
+        Multiply_Layer(sdL2,1/32);
+        param_update(L1,sdL1,Learning_Rate);
+        param_update(L2,sdL2,Learning_Rate);
+        Multiply_Layer(sdL1,0);
+        Multiply_Layer(sdL2,0);
+    }    
 
 
     image_label_finalizer(label_array);
