@@ -5,7 +5,7 @@
 
 #include"idx-file-parser.h"
 
-#define BATCH_SIZE 64
+#define BATCH_SIZE 10
 
 /// @brief Sturct containing pointers to Weights and biases of the layers.
 typedef struct layer{
@@ -46,7 +46,7 @@ struct layer*init_layer(int rows, int cols){
         return NULL;
     }
     for(int i = 0; i < r; i++){
-        Layer->biases[i] = 0.0f;//(float)rand()/((float)RAND_MAX) - 0.5;
+        Layer->biases[i] = (float)rand()/((float)RAND_MAX) - 0.5;
         Layer->Weights[i] = (float*)malloc(c*sizeof(float));
         if (Layer->Weights[i] == NULL) {
             perror("Failed to allocate memory for Layer->Weights[i]");
@@ -189,7 +189,7 @@ void loss_function(struct activations* dZ_loss,struct activations* Fl, int k) {
         exit(1);
     }
     for (int i = 0; i < Fl->size; i++) {
-        dZ_loss->activations[i] = pow(Fl->activations[i] - j[i],2);
+        dZ_loss->activations[i] = Fl->activations[i] - j[i];
     }
     free(j);
 }
@@ -225,7 +225,7 @@ void back_propogate_step(struct layer*L,struct layer*dL,struct activations* dZ,s
     if(dZ->size != dL->rows){perror("Gradient activation and gradient layer matricies do not match");exit(1);}
     if(A->size != dL->cols){perror("activation and GradientLayer matrices do not match");exit(1);}
     // printf("Backpropogating\n");
-    float m = 1/(float)A->size;
+    float m = 1;
     for (int i = 0; i < dL->rows; i++){
         dL->biases[i] = dZ->activations[i] * m;
         for (int j = 0; j < dL->cols; j++){
@@ -261,10 +261,47 @@ void Multiply_Layer(struct layer*L,float num){
     // printf("params_updated\n");
 }
 
+/// @brief Clears the Given layer
+/// @param L Layer
+void Zero_Layer(struct layer*L,float num){
+    if(num>1){perror("Incorrect value passed\n"); exit(1);}
+    // printf("params_updating\n");
+    for (int i = 0; i < L->rows; i++){
+        L->biases[i] = 0;
+        for (int j = 0; j < L->cols; j++)
+            {L->Weights[i][j] = 0;}
+    }
+    // printf("params_updated\n");
+}
+
 /// @brief Prints out activation values for debugging
 /// @param A 
 void print_activations(struct activations*A){
     for(int i = 0; i < A->size; i++){printf("%f\n",A->activations[i]);}    
+}
+
+/// @brief Prints the contents of a layer struct.
+/// @param l Pointer to the layer struct to be printed.
+void print_layer(const struct layer* l) {
+    if (l == NULL) {
+        printf("Layer is NULL.\n");
+        return;
+    }
+    printf("Layer dimensions: rows = %d, cols = %d\n", l->rows, l->cols);
+
+    printf("Weights:\n");
+    for (int i = 0; i < l->rows; i++) {
+        for (int j = 0; j < l->cols; j++) {
+            printf("%8.4f ", l->Weights[i][j]); // Format weights for readability
+        }
+        printf("\n");
+    }
+
+    printf("Biases:\n");
+    for (int i = 0; i < l->rows; i++) {
+        printf("%8.4f ", l->biases[i]); // Format biases for readability
+    }
+    printf("\n");
 }
 
 /// @brief Computes the cross-entropy loss between predicted activations and the true label.
@@ -346,7 +383,7 @@ int main(){
     printf("\n");
 
     int LL1 = 784;
-    int LL2 = 64;
+    int LL2 = 32;
     int LL3 = 10;
 
     struct layer*L1 = init_layer(LL2,LL1);
@@ -366,36 +403,51 @@ int main(){
     struct activations*dZ2 = init_activations(LL2);
     struct activations*loss = init_activations(LL3);
 
-    float Learning_Rate = 0.1;
+    float Learning_Rate = 0.001;
+    int epoch = 5;
     int size = pixel_data->size/BATCH_SIZE;
-    for (int i = 0; i < size; i++){
-        float total_loss = 0.0;
-        Multiply_Layer(sdL1,0);
-        Multiply_Layer(sdL2,0);
-        for (int k = (BATCH_SIZE*i); k < (BATCH_SIZE*(i+1)); k++){
-            // printf("Image number: %d\n", k);
-            input_data(pixel_data,k,A1);
-            forward_prop_step(A1,L1,A2);
-            ReLU(A2);
-            forward_prop_step(A2,L2,A3);
-            softmax(A3);
-            // print_activations(A3);
-            // printf("\n\n");
+    while(epoch--){
+        for (int i = 0; i < size; i++){
+            float total_loss = 0.0;
+            for (int k = (BATCH_SIZE*i); k < (BATCH_SIZE*(i+1)); k++){
+                // printf("Image number: %d\n", k);
+                input_data(pixel_data,k,A1);
+                forward_prop_step(A1,L1,A2);
+                ReLU(A2);
+                forward_prop_step(A2,L2,A3);
+                // print_activations(A3);
+                // printf("\n\n");
+                softmax(A3);
 
-            // backprop
-            loss_function(loss,A3,label_array[k]);
-            back_propogate_step(L2,dL2,loss,A2);
-            ReLU_derivative(A2,dA_RELU);
-            calc_grad_activation(dZ2,L2,loss,dA_RELU);
-            back_propogate_step(L1,dL1,dZ2,A1);
-            param_update(sdL1,dL1,1/BATCH_SIZE);
-            param_update(sdL2,dL2,1/BATCH_SIZE);
-            total_loss += compute_loss(A3,label_array[k])/BATCH_SIZE;
-        }
-        printf("\nBATCH LOSS: %f\n\n",total_loss);
-        param_update(L1,sdL1,Learning_Rate);
-        param_update(L2,sdL2,Learning_Rate);
-    }    
+                // backprop
+                /*
+                    Possible reason for this not training is gradients are not getting updated properly
+                    Improve the loss function printer so that it prints total loss, sum over the entire 
+                    loss function and prints it out. 
+
+                    Also do: Print the Gradients of second layer, before and after
+                    Compare the differences. 
+
+                    Print the sum of all gradients at each batch end to see if that is even working. 
+
+                */
+
+                loss_function(loss,A3,label_array[k]);
+                back_propogate_step(L2,dL2,loss,A2);
+                ReLU_derivative(A2,dA_RELU);
+                calc_grad_activation(dZ2,L2,loss,dA_RELU);
+                back_propogate_step(L1,dL1,dZ2,A1);
+                param_update(sdL1,dL1,1);
+                param_update(sdL2,dL2,1);
+                total_loss += compute_loss(A3,label_array[k])/BATCH_SIZE;
+            }
+
+            param_update(L1,sdL1,-Learning_Rate);
+            param_update(L2,sdL2,-Learning_Rate);
+            Zero_Layer(sdL1,0);
+            Zero_Layer(sdL2,0);
+        }    
+    }
 
     input_data(pixel_data,34,A1);
     printf("Prediction for :%d\n",label_array[34]);
