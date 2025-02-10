@@ -30,3 +30,5 @@ unsigned char* get_image_labels(FILE*file);
 struct pixel_data* get_image_pixel_data(FILE*file);
 
 void image_label_finalizer(unsigned char* label_array);
+
+void image_data_finalizer(struct pixel_data* data);

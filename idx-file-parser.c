@@ -2,8 +2,7 @@
     The following libraries were referenced:
     .idx by Bin-Al sadiq on github
     mnist-neural-network-in-plain-C by AndrewCarterUK on github
-*/
-/*
+
     The following code is completely my own work. The data structure of idx files 
     was given on https://yann.lecun.com/exdb/mnist/ website which was found on 
     AndrewCarterUK's github library on a similar code.
@@ -49,13 +48,12 @@ unsigned char* get_image_labels(FILE*file){
     // Read magic number
     uint32_t magic_number;
     fread(&magic_number, sizeof(uint32_t), 1, file);
-    printf("Magic number in big endian: %u\n", magic_number);
+    printf("Magic number : %u\n", big_to_little_endian(magic_number));
     // Read size
     uint32_t size;
     fread(&size, sizeof(uint32_t), 1, file);
     size = big_to_little_endian(size);
     printf("size of array: %u\n", size);
-    printf("%s","FINALIZER NAME: image_label_finalizer");
     
     // allocate space for char array of numbers and write the labels in it
     unsigned char* label_array = malloc(size*sizeof(unsigned char));
@@ -168,4 +166,22 @@ void image_label_finalizer(unsigned char* label_array){
         free(label_array);
         label_array = NULL;
     }
+}
+
+/// @brief Finalizer function to free the memory allocated for a pixel_data struct.
+/// @param data Pointer to the pixel_data struct to be finalized.
+void image_data_finalizer(struct pixel_data* data) {
+    if (data == NULL) {
+        return;
+    }
+    if (data->neuron_activation != NULL) {
+        for (uint32_t i = 0; i < data->rows; i++) {
+            if (data->neuron_activation[i] != NULL) {free(data->neuron_activation[i]);}
+        }
+        free(data->neuron_activation);
+        data->neuron_activation = NULL;
+    }
+    data->size = 0;
+    data->rows = 0;
+    data->cols = 0;
 }
