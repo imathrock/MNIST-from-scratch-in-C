@@ -144,7 +144,7 @@ struct pixel_data* get_image_pixel_data(FILE* file) {
     for (uint32_t i = 0; i < size; i++) {
         size_t bytes_read = fread(neuron_activations->neuron_activation[i], sizeof(uint8_t), rows * cols, file);
         if (bytes_read != rows * cols) {
-            printf("Error: Not enough bytes read for image %u. Expected %u, got %zu.\n", i, rows * cols, bytes_read);
+            printf("Error: Not enough bytes read for image %u. Expected %u, got %u.\n", i, rows * cols, bytes_read);
             fclose(file);
             for (uint32_t j = 0; j < size; j++) {
                 free(neuron_activations->neuron_activation[j]);

@@ -5,7 +5,7 @@
 
 #include"idx-file-parser.h"
 
-#define BATCH_SIZE 10
+#define BATCH_SIZE 32
 
 /// @brief Sturct containing pointers to Weights and biases of the layers.
 typedef struct layer{
@@ -309,13 +309,13 @@ void print_layer(const struct layer* l) {
     printf("Weights:\n");
     for (int i = 0; i < l->rows; i++) {
         for (int j = 0; j < l->cols; j++) {
-            printf("%8.4f ", l->Weights[i][j]); // Format weights for readability
+            printf("%8.4f ", l->Weights[i][j]);
         }
         printf("\n");
     }
     printf("Biases:\n");
     for (int i = 0; i < l->rows; i++) {
-        printf("%8.4f ", l->biases[i]); // Format biases for readability
+        printf("%8.4f ", l->biases[i]);
     }
     printf("\n");
 }
@@ -328,13 +328,13 @@ void show_image(struct pixel_data*pixel_data,int k){
     for (int i = 0; i < 784; i++){
         if(i%28 == 0){
             printf("\n");
-            if (pixel_data->neuron_activation[k][i] > 1) {
+            if (pixel_data->neuron_activation[k][i] > 10) {
                 printf("# ");
             } else {
                 printf(". ");
             }
         }else{
-            if (pixel_data->neuron_activation[k][i] > 1) {
+            if (pixel_data->neuron_activation[k][i] > 10) {
                 printf("# ");
             } else {
                 printf(". ");
@@ -347,19 +347,20 @@ void show_image(struct pixel_data*pixel_data,int k){
 int main(){
 
     // Parser Testing
-    FILE* file = fopen("data/train-labels.idx1-ubyte", "r");
+    FILE* file = fopen("data/train-labels-idx1-ubyte", "r");
     unsigned char* label_array = get_image_labels(file);
     printf("\n");
     printf("%d\n",label_array[0]);
     printf("\n");
     float* star = one_hot_encode(label_array[0]);
     for(int i = 0; i< 10; i++){printf("%f\n",star[i]);}
-    file = fopen("data/train-images.idx3-ubyte", "rb");
+    file = fopen("data/train-images-idx3-ubyte", "rb");
     struct pixel_data* pixel_data = get_image_pixel_data(file);
+    show_image(pixel_data,0);
     printf("\n");
 
     int LL1 = 784;
-    int LL2 = 32;
+    int LL2 = 128;
     int LL3 = 10;
 
     struct layer*L1 = init_layer(LL2,LL1);
@@ -379,7 +380,7 @@ int main(){
     struct activations*dZ2 = init_activations(LL2);
     struct activations*loss = init_activations(LL3);
 
-    float Learning_Rate = 0.001;
+    float Learning_Rate = 0.05;
     int epoch = 5;
     int size = pixel_data->size/BATCH_SIZE;
     while(epoch--){
@@ -411,9 +412,9 @@ int main(){
     image_data_finalizer(pixel_data);
     image_label_finalizer(label_array);
 
-    FILE* test_file = fopen("data/t10k-labels.idx1-ubyte", "r");
+    FILE* test_file = fopen("data/t10k-labels-idx1-ubyte", "r");
     unsigned char* test_lbl_arr = get_image_labels(test_file);
-    test_file = fopen("data/t10k-images.idx3-ubyte", "rb");
+    test_file = fopen("data/t10k-images-idx3-ubyte", "rb");
     struct pixel_data* test_pix_data = get_image_pixel_data(test_file);
 
     printf("\n\nCalculating accuracy:-\n\n");
@@ -437,7 +438,8 @@ int main(){
     ReLU(A2);
     forward_prop_step(A2,L2,A3);
     softmax(A3);
-    printf("Prediction:%d",get_pred_from_softmax(A3));
+    printf("Prediction:%d\n",get_pred_from_softmax(A3));
+    printf("Answer:%d",test_lbl_arr[10]);
 
     input_data(test_pix_data,100,A1);
     show_image(test_pix_data,100);
@@ -445,15 +447,18 @@ int main(){
     ReLU(A2);
     forward_prop_step(A2,L2,A3);
     softmax(A3);
-    printf("Prediction:%d",get_pred_from_softmax(A3));
+    printf("Prediction:%d\n",get_pred_from_softmax(A3));
+    printf("Answer:%d",test_lbl_arr[100]);
+    
 
-    input_data(test_pix_data,1000,A1);
-    show_image(test_pix_data,1000);
+    input_data(test_pix_data,1100,A1);
+    show_image(test_pix_data,1100);
     forward_prop_step(A1,L1,A2);
     ReLU(A2);
     forward_prop_step(A2,L2,A3);
     softmax(A3);
-    printf("Prediction:%d",get_pred_from_softmax(A3));
+    printf("Prediction:%d\n",get_pred_from_softmax(A3));
+    printf("Answer:%d",test_lbl_arr[1100]);
 
     image_data_finalizer(test_pix_data);
     image_label_finalizer(test_lbl_arr);
