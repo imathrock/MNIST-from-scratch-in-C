@@ -17,7 +17,6 @@ A custom implementation of an IDX file parser (`idx-file-parser.h` and `idx-file
 
 ### References
 - `.idx` format reference: Bin-Al Sadiq (GitHub)
-- `mnist-neural-network-in-plain-C`: AndrewCarterUK (GitHub)
 - IDX file structure documented on [Yann LeCun's website](https://yann.lecun.com/exdb/mnist/)
 
 ### IDX File Structure
@@ -62,13 +61,15 @@ This neural network consists of:
 
 The network was trained using the cross-entropy loss function with an epoch count of 5 and a learning rate of 0.001.
 
-### Training Results
+### Results on Testing Dataset
 ```sh
 Total Correct Predictions: 9484
 Accuracy of the Model: 9484/10000
 ```
+Out of 10000 images in the testing dataset, it got 9484 images correct. 
+This model is 94.84% accurate as tested on the t10k-images.idx3-ubyte file.
 
-## Sample Results
+## Sample Results with ASCII art
 ```sh
  Total Correct predictions: 9484
 
@@ -162,7 +163,4 @@ Prediction:6
 . . . . . . . . # # # . . . . . . . . . . . . . . . . . 
 . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 Prediction:9
-
 ```
-
-This model is 94.84% accurate.
